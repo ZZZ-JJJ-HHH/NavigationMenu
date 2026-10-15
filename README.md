@@ -107,16 +107,33 @@ curl.exe -s -X POST http://localhost:8080/api/menu/tree -H "Content-Type: applic
 
 流水线定义在 [.github/workflows/ci.yml](.github/workflows/ci.yml)，push 到 `main` 或提交 PR 时触发：
 
-| 阶段 | 内容 |
-|------|------|
-| 编译 + 测试 | 复用 `docker-compose.yml` 起 MySQL 和 Redis，执行 `mvn verify` |
-| 构建镜像 | 用 buildx 构建 `Dockerfile`，确认镜像能产出并缓存构建层 |
+| Job | 跑在哪 | 做什么 |
+|-----|--------|--------|
+| 编译 + 测试 | GitHub 托管 runner | 复用 `docker-compose.yml` 起 MySQL 和 Redis，执行 `mvn verify` |
+| 构建并推送镜像 | GitHub 托管 runner | 构建 `Dockerfile`，推送到 GHCR，tag 用 commit SHA |
+| 部署到本机 | 本机 self-hosted runner | 拉取本次提交的镜像，`docker compose up -d --wait` 滚动重启并验证健康 |
 
-目前只做到 CI（每次提交自动构建、测试、产出镜像）。CD（自动把镜像送上运行环境）尚未接入，可选路线：
+于是完成一个闭环：**push 一次代码，本机正在运行的容器会自动更新到这次提交对应的镜像。**
 
-1. **本机 + 内网穿透**：`docker compose up -d` 起服务，用 Cloudflare Tunnel 暴露成公网地址。零成本，适合演示，关机即停。
-2. **云服务器**：轻量应用服务器装 Docker，CI 把镜像推到 GHCR，CD 通过 SSH 执行 `docker compose pull && docker compose up -d`。最接近真实生产。
-3. **托管 PaaS**：仓库直连平台，由平台负责构建和运行，不用自己运维主机。
+镜像地址是 `ghcr.io/zzz-jjj-hhh/navigation-menu:<commit-sha>`。用 commit SHA 而不是只用 `latest` 作 tag，是为了让任何正在运行的容器都能被追溯到确切的那次提交。
+
+### self-hosted runner
+
+本机装了一个 GitHub Actions runner，位于 `%USERPROFILE%\actions-runner`，标签 `navigation-menu-deploy`。它**主动向外连** GitHub 拉任务，所以不需要公网 IP、端口映射或 SSH 密钥。
+
+```powershell
+# 当前以隐藏进程运行，重启电脑后需要重新启动
+cd $env:USERPROFILE\actions-runner
+.\run.cmd
+```
+
+要开机自启，用管理员身份执行 `.\svc.cmd install`，把它装成 Windows 服务。
+
+### 安全约束
+
+deploy job 带 `if: github.event_name == 'push'`，只在推送到 `main` 时触发。这个限制是必须保留的：**self-hosted runner 绝不能执行来自 fork 的 PR**，否则任何人提交一个 PR 就能在你的电脑上执行任意代码。本机 runner 只服务仓库所有者本人推送到 main 的提交。
+
+健康检查端点 `GET /actuator/health` 是这条链路的验收标准——最后一步拉不通它，部署就算失败。
 
 健康检查端点：`GET /actuator/health`，容器与流水线都依赖它判断服务是否就绪。
 
