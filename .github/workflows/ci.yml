@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# 同一分支同时只跑一条流水线。否则连着推两次会产生两个 deploy job 指向同一台
+# self-hosted runner，runner 一次只接一个任务，它们会排队——而排队顺序没有保证，
+# 先推的那次若后跑，最后落地的就是旧镜像。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: 编译 + 测试
@@ -67,6 +74,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 构建 Docker 镜像
+        # 推送到 GHCR.io
         uses: docker/build-push-action@v7
         with:
           context: .
