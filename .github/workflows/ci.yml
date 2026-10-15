@@ -3,8 +3,16 @@ name: CI
 on:
   push:
     branches: [main]
+    # 纯文档改动不影响测试结果，也不改变镜像内容。paths-ignore 是"根本不触发"，
+    # 不是"触发了再跳过"——不开机器、不下依赖、不构建镜像。
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
 
 # 同一分支同时只跑一条流水线。否则连着推两次会产生两个 deploy job 指向同一台
 # self-hosted runner，runner 一次只接一个任务，它们会排队——而排队顺序没有保证，
@@ -113,29 +121,8 @@ jobs:
       - name: 拉取本次提交对应的镜像
         run: docker compose pull app
 
-      # 只改了文档时 tag 会变但镜像内容不变，此时不该动正在运行的容器。
-      # 脚本保持纯 ASCII：runner 可能用 Windows PowerShell 5.1 读取该临时脚本。
-      - name: 判断镜像内容是否变化
-        id: diff
-        run: |
-          $target = docker image inspect $env:APP_IMAGE --format '{{.Id}}'
-          $cid = docker compose ps -q app
-          $current = if ($cid) { docker inspect $cid --format '{{.Image}}' } else { '' }
-          $running = if ($cid) { docker inspect $cid --format '{{.State.Running}}' } else { 'false' }
-          Write-Host "target  = $target"
-          Write-Host "current = $current (running=$running)"
-          $same = ($current -eq $target) -and ($running -eq 'true')
-          $val = if ($same) { 'false' } else { 'true' }
-          Write-Host "changed = $val"
-          [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "changed=$val`n")
-
       - name: 用新镜像重启应用
-        if: steps.diff.outputs.changed == 'true'
         run: docker compose up -d --wait --no-build
-
-      - name: 镜像内容未变化，容器保持不动
-        if: steps.diff.outputs.changed == 'false'
-        run: Write-Host "image id unchanged, container left as is"
 
       - name: 验证服务健康
         run: curl.exe -fsS http://localhost:8080/actuator/health
