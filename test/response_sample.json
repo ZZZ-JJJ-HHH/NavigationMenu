@@ -1,0 +1,199 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "menuTree": [
+      {
+        "nodeId": "home",
+        "nodeName": "首页",
+        "nodePath": "/home",
+        "nodeIcon": "home",
+        "sortOrder": 1,
+        "children": null
+      },
+      {
+        "nodeId": "account",
+        "nodeName": "我的账户",
+        "nodePath": "/account",
+        "nodeIcon": "account",
+        "sortOrder": 2,
+        "children": [
+          {
+            "nodeId": "digital-rmb",
+            "nodeName": "数字人民币",
+            "nodePath": "/account/digital-rmb",
+            "nodeIcon": null,
+            "sortOrder": 1,
+            "children": null
+          }
+        ]
+      },
+      {
+        "nodeId": "transfer",
+        "nodeName": "转账汇款",
+        "nodePath": "/transfer",
+        "nodeIcon": "transfer",
+        "sortOrder": 3,
+        "children": [
+          {
+            "nodeId": "transfer-inner",
+            "nodeName": "行内转账",
+            "nodePath": "/transfer/inner",
+            "nodeIcon": null,
+            "sortOrder": 1,
+            "children": null
+          },
+          {
+            "nodeId": "transfer-cross",
+            "nodeName": "跨行 转账",
+            "nodePath": "/transfer/cross",
+            "nodeIcon": null,
+            "sortOrder": 2,
+            "children": null
+          },
+          {
+            "nodeId": "transfer-global",
+            "nodeName": "跨境汇款",
+            "nodePath": "/transfer/global",
+            "nodeIcon": null,
+            "sortOrder": 3,
+            "children": null
+          }
+        ]
+      },
+      {
+        "nodeId": "finance",
+        "nodeName": "理财投资",
+        "nodePath": "/finance",
+        "nodeIcon": "finance",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeId": "fund",
+            "nodeName": "基金",
+            "nodePath": "/finance/fund",
+            "nodeIcon": null,
+            "sortOrder": 1,
+            "children": null
+          },
+          {
+            "nodeId": "product",
+            "nodeName": "理财产品",
+            "nodePath": "/finance/product",
+            "nodeIcon": null,
+            "sortOrder": 2,
+            "children": null
+          },
+          {
+            "nodeId": "stock",
+            "nodeName": "股票",
+            "nodePath": "/finance/stock",
+            "nodeIcon": null,
+            "sortOrder": 3,
+            "children": null
+          }
+        ]
+      },
+      {
+        "nodeId": "card",
+        "nodeName": "信用卡",
+        "nodePath": "/card",
+        "nodeIcon": "card",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeId": "card-my",
+            "nodeName": "我的卡",
+            "nodePath": "/card/my",
+            "nodeIcon": null,
+            "sortOrder": 1,
+            "children": null
+          },
+          {
+            "nodeId": "card-bill",
+            "nodeName": "账单查询",
+            "nodePath": "/card/bill",
+            "nodeIcon": null,
+            "sortOrder": 2,
+            "children": null
+          },
+          {
+            "nodeId": "card-point",
+            "nodeName": "积分商城",
+            "nodePath": "/card/point",
+            "nodeIcon": null,
+            "sortOrder": 3,
+            "children": null
+          }
+        ]
+      },
+      {
+        "nodeId": "loan",
+        "nodeName": "贷款",
+        "nodePath": "/loan",
+        "nodeIcon": "loan",
+        "sortOrder": 6,
+        "children": [
+          {
+            "nodeId": "loan-house",
+            "nodeName": "房贷",
+            "nodePath": "/loan/house",
+            "nodeIcon": null,
+            "sortOrder": 1,
+            "children": null
+          },
+          {
+            "nodeId": "loan-consume",
+            "nodeName": "消费贷",
+            "nodePath": "/loan/consume",
+            "nodeIcon": null,
+            "sortOrder": 2,
+            "children": null
+          },
+          {
+            "nodeId": "loan-biz",
+            "nodeName": "经营贷",
+            "nodePath": "/loan/biz",
+            "nodeIcon": null,
+            "sortOrder": 3,
+            "children": null
+          }
+        ]
+      },
+      {
+        "nodeId": "mine",
+        "nodeName": "我的",
+        "nodePath": "/mine",
+        "nodeIcon": "mine",
+        "sortOrder": 99,
+        "children": [
+          {
+            "nodeId": "mine-profile",
+            "nodeName": "个人信息",
+            "nodePath": "/mine/profile",
+            "nodeIcon": null,
+            "sortOrder": 1,
+            "children": null
+          },
+          {
+            "nodeId": "mine-security",
+            "nodeName": "安全设置",
+            "nodePath": "/mine/security",
+            "nodeIcon": null,
+            "sortOrder": 2,
+            "children": null
+          },
+          {
+            "nodeId": "mine-help",
+            "nodeName": "帮助中心",
+            "nodePath": "/mine/help",
+            "nodeIcon": null,
+            "sortOrder": 3,
+            "children": null
+          }
+        ]
+      }
+    ],
+    "breadcrumb": null
+  }
+}
