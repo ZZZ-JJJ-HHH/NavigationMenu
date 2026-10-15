@@ -16,7 +16,16 @@
   - [完整的 CD 链条](#完整的-cd-链条)
   - [镜像 tag 的双重设计](#镜像-tag-的双重设计)
 - [📊 应用与对比](#应用与对比)
+  - [本项目的完整流水线](#本项目的完整流水线)
+  - [什么时候才需要跑流水线](#什么时候才需要跑流水线)
+  - [失败了怎么办](#失败了怎么办)
+  - [认知纠偏：学习路上的五个典型误区](#认知纠偏学习路上的五个典型误区)
+  - [测试质量决定了 CI 的能力上限](#测试质量决定了-ci-的能力上限)
+  - [踩坑记录（真机验证）](#踩坑记录真机验证)
+  - [三种部署落点对比](#三种部署落点对比)
 - [🔥 面试要点](#面试要点)
+  - [高频问题 + 标准答案](#高频问题--标准答案)
+  - [关键词速记](#关键词速记)
 - [🧠 记忆口诀](#记忆口诀)
 - [🔄 知识闭环](#知识闭环)
 
@@ -182,25 +191,6 @@ github:
 
 因为 `github.sha` 在 image job 和 deploy job 里读出来是同一个值，image job 打的 tag `navigation-menu:a1b2c3d` 和 deploy job 拉的 tag `navigation-menu:a1b2c3d` 严丝合缝地对上——不需要任何显式传递。
 
-对比手动传递的方式（如果 GitHub 没帮你做这件事）：
-
-```yaml
-# 假设要手动传（实际不用这么写）
-image:
-  outputs:
-    image_hash: ${{ steps.build.outputs.hash }}
-  steps:
-    - id: build
-      run: echo "hash=${GITHUB_SHA}" >> $GITHUB_OUTPUT
-
-deploy:
-  needs: image
-  env:
-    APP_IMAGE: ghcr.io/zzz-jjj-hhh/navigation-menu:${{ needs.image.outputs.image_hash }}
-```
-
-多了一堆 `outputs`/`needs` 配置，而 `${{ github.sha }}` 一行搞定。
-
 ### 镜像产出到底有什么用
 
 先说镜像是什么：**把「应用 + 它需要的运行时」打成一个只读的盒子**。
@@ -284,7 +274,7 @@ latest tag 保留的理由：
 |-----|--------|--------|---------|
 | `test` | `ubuntu-latest` | 起 MySQL / Redis，跑 `mvn verify`（43 个测试） | push + PR |
 | `image` | `ubuntu-latest` | buildx 构建镜像并推到 GHCR，同时打 `:<commit-sha>` 和 `:latest` | push + PR |
-| `deploy` | `[self-hosted, navigation-menu-deploy]` | `docker compose pull app` → 比对镜像 ID → 变了才 `up -d --wait --no-build` | **仅 push 到 main** |
+| `deploy` | `[self-hosted, navigation-menu-deploy]` | `docker compose pull app` → `up -d --wait --no-build`，只重建应用容器 | **仅 push 到 main** |
 
 ```java
 git push
@@ -302,13 +292,15 @@ git push
       ▼
 ┌─────────────┐   本机 self-hosted runner（zhan-pc）
 │ job: deploy │   docker compose pull app
-└─────────────┘   比对镜像 ID → 变了才 up -d --wait --no-build
+└─────────────┘   docker compose up -d --wait --no-build
       │           curl.exe -fsS /actuator/health
       ▼
 服务在 8080 上跑起来
 ```
 
 `deploy` 只跑在 `push` 到 main，**不跑在 PR 上**。这一条是刻意的：runner 就在你本机，如果 PR 也能触发它，等于把本机的执行权开放给了提 PR 的人。
+
+整条流水线**没有配置任何 secret**。推送镜像用的是 GitHub 运行时自动注入的临时凭据 `GITHUB_TOKEN`，用完即废、不需要人工维护；拉取公开包连登录都不需要（见「坑四」）。少一套凭据要管，就少一处可能泄露的地方——这是选 GHCR 而不是 Docker Hub 的一个实际好处。
 
 ### 什么时候才需要跑流水线
 
@@ -436,7 +428,7 @@ concurrency:
 
 ### 踩坑记录（真机验证）
 
-这四条都是实际跑出来的，不是假设。
+这五条都是实际跑出来的，不是假设。
 
 **坑一：job 级 `env` 不能引用 `env` 上下文**
 
@@ -584,6 +576,8 @@ gh run rerun <run-id> --failed
 | 防回归 | CI 比"验证本次改动"更值钱的作用 |
 | 上下文 | run 级别的全局对象，所有 job 共享同一个 `github.sha` |
 | 精确 tag | 自动化部署只用 commit SHA，绝不用 latest |
+| `paths-ignore` | 在触发层过滤，比"触发了再跳过"省下一整条流水线 |
+| `concurrency` | 同分支串行化，避免两次推送的部署乱序 |
 
 ---
 
@@ -629,11 +623,12 @@ GitHub Actions 被触发
       │                     push ghcr.io
       │                     ↑ CI 与 CD 的交接点
       │
-      └── job: deploy  ──▶ 本机 self-hosted runner
-                            APP_IMAGE = navigation-menu:${{ github.sha }}  ← a1b2c3d（同一个！）
-                            docker compose pull
-                            docker compose up -d
-                            ↑ 只有 push 到 main 才走这一步
+      └── job: deploy  ──▶ 本机 self-hosted runner（只有 push 到 main 才走）
+                            APP_IMAGE = ghcr.io/.../navigation-menu:${{ github.sha }}
+                                        ↑ a1b2c3d，和上面那个是同一个值
+                            docker compose pull app
+                            docker compose up -d --wait --no-build
+                            curl.exe -fsS /actuator/health
       │
       ▼
 服务在 8080 上跑起来
