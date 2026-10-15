@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # GHCR 要求镜像名全小写，而 GitHub 仓库名允许大写字母，所以这里写成小写字面量
+  IMAGE_NAME: ghcr.io/zzz-jjj-hhh/navigation-menu
+
 jobs:
   test:
     name: 编译 + 测试
@@ -46,20 +50,66 @@ jobs:
         run: docker compose down -v
 
   image:
-    name: 构建镜像
+    name: 构建并推送镜像
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v4
 
-      # 只验证 Dockerfile 能不能构建；以后接 CD 时在这里加 push 到镜像仓库
+      # fork 来的 PR 拿不到写权限，只在 push 到 main 时登录推送
+      - name: 登录 GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: 构建 Docker 镜像
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: false
-          tags: navigation-menu:ci
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: 部署到本机
+    # 跑在你自己的电脑上，不是 GitHub 的机器
+    runs-on: [self-hosted, navigation-menu-deploy]
+    needs: image
+    # 只认 push 到 main。self-hosted runner 绝不能接 fork 来的 PR，
+    # 否则任何人都能靠一个 PR 在你的电脑上执行任意代码
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
+    env:
+      APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # GHCR 包默认私有，只继承仓库的访问权限而不继承可见性，必须登录才能拉
+      - name: 登录 GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 拉取本次提交对应的镜像
+        run: docker compose pull app
+
+      - name: 用新镜像重启应用
+        run: docker compose up -d --wait --no-build
+
+      - name: 验证服务健康
+        run: curl.exe -fsS http://localhost:8080/actuator/health

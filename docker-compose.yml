@@ -39,7 +39,8 @@ services:
 
   app:
     build: .
-    image: navigation-menu:local
+    # 本地开发构建 navigation-menu:local；部署时由 APP_IMAGE 指向 GHCR 上的镜像
+    image: ${APP_IMAGE:-navigation-menu:local}
     environment:
       DB_URL: "jdbc:mysql://mysql:3306/navigation_menu?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false"
       DB_USERNAME: root
