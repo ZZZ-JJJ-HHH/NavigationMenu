@@ -8,6 +8,13 @@
 - [🎯 背景与问题](#背景与问题)
 - [💡 核心目的](#核心目的)
 - [⚙️ 原理与机制](#原理与机制)
+  - [概念层的对应关系](#概念层的对应关系)
+  - [与 Jenkins 的对应关系](#与-jenkins-的对应关系)
+  - [runner 是一台随叫随到的干净机器](#runner-是一台随叫随到的干净机器)
+  - [GitHub Actions 的上下文机制](#github-actions-的上下文机制)
+  - [镜像产出到底有什么用](#镜像产出到底有什么用)
+  - [完整的 CD 链条](#完整的-cd-链条)
+  - [镜像 tag 的双重设计](#镜像-tag-的双重设计)
 - [📊 应用与对比](#应用与对比)
 - [🔥 面试要点](#面试要点)
 - [🧠 记忆口诀](#记忆口诀)
@@ -136,6 +143,64 @@ GitHub 开一台全新机器
 
 **这一条解释了 workflow 里两个看起来多余的设计**：为什么 CI 里要专门 `docker compose up -d --wait mysql redis`（空机器上没有数据库），为什么到处都在配 cache（不缓存就要每次都重新下载整个依赖树）。
 
+### GitHub Actions 的上下文机制
+
+三个 job 里用的 `${{ github.sha }}` 为什么是同一个？因为它们来自**同一次 workflow run 的全局上下文**。
+
+```java
+你执行 git push → 触发了一次 workflow run
+                        │
+                        ▼
+                GitHub 创建一个 "run" 对象
+                这个 run 有一个全局唯一的 github 上下文
+                        │
+                        │  里面有个字段叫 github.sha
+                        │  值就是你刚才 push 的那个 commit 的完整 hash
+                        │  从 run 创建到结束，这个值**永不改变**
+                        │
+           ┌────────────┼────────────┐
+           ▼            ▼            ▼
+        test job    image job    deploy job
+           │            │            │
+        读同一个     读同一个     读同一个
+       github.sha  github.sha  github.sha
+```
+
+**GitHub Actions 的上下文（context）是 run 级别的，不是 job 级别的。** 整个 workflow run 只有一个 `github` 对象，所有 job 共享它。
+
+`github` 上下文是 GitHub 内置提供的，不需要你配置：
+
+```yaml
+github:
+  sha: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"   # 触发本次 run 的 commit 完整 hash（40 位）
+  ref: "refs/heads/main"                            # 触发的分支
+  event_name: "push"                                # 触发事件
+  actor: "zzz-jjj-hhh"                              # 谁 push 的
+  repository: "zzz-jjj-hhh/NavigationMenu"          # 仓库名
+  # ... 还有几十个字段
+```
+
+因为 `github.sha` 在 image job 和 deploy job 里读出来是同一个值，image job 打的 tag `navigation-menu:a1b2c3d` 和 deploy job 拉的 tag `navigation-menu:a1b2c3d` 严丝合缝地对上——不需要任何显式传递。
+
+对比手动传递的方式（如果 GitHub 没帮你做这件事）：
+
+```yaml
+# 假设要手动传（实际不用这么写）
+image:
+  outputs:
+    image_hash: ${{ steps.build.outputs.hash }}
+  steps:
+    - id: build
+      run: echo "hash=${GITHUB_SHA}" >> $GITHUB_OUTPUT
+
+deploy:
+  needs: image
+  env:
+    APP_IMAGE: ghcr.io/zzz-jjj-hhh/navigation-menu:${{ needs.image.outputs.image_hash }}
+```
+
+多了一堆 `outputs`/`needs` 配置，而 `${{ github.sha }}` 一行搞定。
+
 ### 镜像产出到底有什么用
 
 先说镜像是什么：**把「应用 + 它需要的运行时」打成一个只读的盒子**。
@@ -163,6 +228,50 @@ Jar 不是能独立运行的东西——它需要特定版本的 JVM，运行时
 
 四段缺一不可。本项目当前的实现正好把四段都走通了。
 
+### 镜像 tag 的双重设计
+
+`ci.yml` 里 image job 同时打了两个 tag：
+
+```yaml
+tags: |
+  ghcr.io/zzz-jjj-hhh/navigation-menu:${{ github.sha }}   # 精确版本
+  ghcr.io/zzz-jjj-hhh/navigation-menu:latest              # 方便性
+```
+
+| tag | 值举例 | 谁在用 | 特点 |
+|---|---|---|---|
+| `${{ github.sha }}` | `a1b2c3d4e5f6` | **deploy job** | 唯一、不可变、可追溯 |
+| `latest` | 永远指向最近一次 push | 没人用（部署时故意不用） | 方便手动 pull，可变 |
+
+deploy job 只用 commit sha：
+
+```yaml
+env:
+  APP_IMAGE: ghcr.io/zzz-jjj-hhh/navigation-menu:${{ github.sha }}
+```
+
+**为什么不用 latest 部署？** 因为 latest 是可变标签，并发推送时会产生歧义：
+
+```
+时间线（假设只用 latest）：
+  10:00  你 push commit A → latest 指向 A → image job 推送成功
+  10:05  你 push commit B → latest 改为 B → 第二个 image job 推送成功
+  10:06  deploy job 开始拉 latest
+         → 拉到 A？还是 B？
+         → 取决于第二个 image job 的 "latest 覆盖" 操作在 deploy 开始前有没有完成
+         → 不确定 ❌
+```
+
+而 commit sha 是 git 产生的**全局唯一标识符**，一次 push 对应一个、永不改变。image job 打了 tag `abc123`，deploy job 就拉 `abc123`——不存在"还没改过来"这种情况。
+
+latest tag 保留的理由：
+- **手动排查问题时**：`docker run ghcr.io/...:latest` 快速拉最新版跑一下
+- **文档示例**：`docker pull ghcr.io/...:latest` 比写一串 hash 好理解
+
+**黄金规则：自动化部署永远不要用 latest，它只该出现在文档和手动调试里。**
+
+**回滚的便利性也是 commit sha 的额外好处：** 旧镜像不会被删除（`docker compose pull` 只拉新的、不删旧的），所以回滚就是把 `APP_IMAGE` 改成上一个好的 commit sha 然后 `docker compose up -d`。如果只用 latest，你回滚时只能说"我要拉昨天那个版本"，却说不清具体是哪一个。
+
 ---
 
 ## 📊 应用与对比
@@ -175,7 +284,7 @@ Jar 不是能独立运行的东西——它需要特定版本的 JVM，运行时
 |-----|--------|--------|---------|
 | `test` | `ubuntu-latest` | 起 MySQL / Redis，跑 `mvn verify`（43 个测试） | push + PR |
 | `image` | `ubuntu-latest` | buildx 构建镜像并推到 GHCR，同时打 `:<commit-sha>` 和 `:latest` | push + PR |
-| `deploy` | `[self-hosted, navigation-menu-deploy]` | `docker compose pull app` → `up -d --wait --no-build`，只重建应用容器 | **仅 push 到 main** |
+| `deploy` | `[self-hosted, navigation-menu-deploy]` | `docker compose pull app` → 比对镜像 ID → 变了才 `up -d --wait --no-build` | **仅 push 到 main** |
 
 ```java
 git push
@@ -193,13 +302,47 @@ git push
       ▼
 ┌─────────────┐   本机 self-hosted runner（zhan-pc）
 │ job: deploy │   docker compose pull app
-└─────────────┘   docker compose up -d --wait --no-build
+└─────────────┘   比对镜像 ID → 变了才 up -d --wait --no-build
       │           curl.exe -fsS /actuator/health
       ▼
 服务在 8080 上跑起来
 ```
 
 `deploy` 只跑在 `push` 到 main，**不跑在 PR 上**。这一条是刻意的：runner 就在你本机，如果 PR 也能触发它，等于把本机的执行权开放给了提 PR 的人。
+
+### 什么时候才需要重启服务
+
+有个容易忽略的区别：**tag 变了不等于镜像内容变了**。
+
+- **tag** 是贴在镜像上的字符串标签，换 tag 不改变镜像内容
+- **镜像 ID** 是镜像配置对象的 sha256 摘要——由"各层的内容"加"运行时配置（ENV / ENTRYPOINT / USER 等）"共同算出，是内容的指纹
+
+每次部署，`APP_IMAGE` 指向的 tag 都会变成新的 commit SHA，所以 tag 一定在变。但内容可能完全没变：
+
+| 改动 | 镜像 ID 会变吗 | 为什么 |
+|------|---------------|--------|
+| `src/main/**` Java 代码 | 会 | `COPY src ./src` 那一层的内容变了 |
+| `pom.xml` 依赖或版本 | 会 | 同上，而且要重新编译打包 |
+| `Dockerfile` 任一行 | 会 | 层内容或运行时配置变了 |
+| `src/test/**` 测试代码 | **会** | 有点反直觉：`COPY src ./src` 把测试也拷了进去。虽然 `-DskipTests` 不执行它们，但文件内容变了层就变了 |
+| `docs/**`、`*.md`、`.github/**` | 不会 | 被 `.dockerignore` 排除在构建上下文之外 |
+| 换个 tag | 不会 | tag 不参与内容计算 |
+
+如果 tag 一变就 `up -d`，那么改一篇文档也会把应用重启一次。所以 deploy job 里加了一步判断，比对"容器当前引用的镜像 ID"和"本次要部署的镜像 ID"：
+
+```java
+拉取镜像
+      │
+      ▼
+镜像 ID 与容器当前的一致？──是──▶ 容器保持不动
+      │
+      否
+      │
+      ▼
+docker compose up -d --wait --no-build
+```
+
+> 🔑 **判断依据是内容，不是标签。** 另外这个跳过只在容器正常运行时生效——容器没在跑的话，即使 ID 相同也会把它拉起来。
 
 ### 失败了怎么办
 
@@ -421,6 +564,14 @@ gh run rerun <run-id> --failed
 >
 > 核心风险在公开仓库——任何人 fork 后改掉 workflow 提 PR，就能在维护者的真实电脑上执行任意命令。缓解手段：仓库转私有、用 runner group 限制可派发的工作流、收紧 fork PR 的审批开关、不给 runner 管理员权限、更彻底地跑在隔离的虚拟机里。
 
+> **Q6：为什么你的镜像同时打 commit SHA 和 latest 两个 tag？部署时用哪个？**
+>
+> commit SHA tag 是**精确版本标识**，它来自 git 的 commit hash，全局唯一、永不改变。image job 打了 tag `navigation-menu:a1b2c3d`，deploy job 就拉同一个 tag——因为它们读的是同一个 `github.sha` 上下文变量，严丝合缝对上。并发推送时 SHA 不会有歧义，还能精确追溯和回滚。
+>
+> latest tag 是**方便性标签**，只在手动调试和文档示例里用，自动化部署**绝不能用它**——它是可变的，谁也不知道当前 latest 指向的到底是哪个 commit。
+>
+> 黄金规则：自动化部署只用精确 tag（commit SHA），latest 留给人手动用。
+
 ### 关键词速记
 
 | 关键词 | 一句话 |
@@ -431,6 +582,8 @@ gh run rerun <run-id> --failed
 | `needs` | job 间的依赖，串成流水线 |
 | 镜像仓库 | CI 和 CD 的交接点，镜像推到这里才算交付 |
 | 防回归 | CI 比"验证本次改动"更值钱的作用 |
+| 上下文 | run 级别的全局对象，所有 job 共享同一个 `github.sha` |
+| 精确 tag | 自动化部署只用 commit SHA，绝不用 latest |
 
 ---
 
@@ -464,16 +617,20 @@ gh run rerun <run-id> --failed
       ▼
 GitHub Actions 被触发
       │
+      │  github.sha = "a1b2c3d..."  ← run 级全局上下文，三个 job 读同一个
+      │
       ├── job: test    ──▶ docker compose up mysql redis
       │                     mvn verify（43 个测试）
       │                     ↑ 沙箱机器，跑完销毁
       │
       ├── job: image   ──▶ buildx 构建镜像
-      │                     docker login ghcr.io
-      │                     push ghcr.io/.../navigation-menu:<sha>
+      │                     tags: navigation-menu:${{ github.sha }}  ← a1b2c3d
+      │                           navigation-menu:latest
+      │                     push ghcr.io
       │                     ↑ CI 与 CD 的交接点
       │
-      └── job: deploy  ──▶ 本机 self-hosted runner（zhan-pc）
+      └── job: deploy  ──▶ 本机 self-hosted runner
+                            APP_IMAGE = navigation-menu:${{ github.sha }}  ← a1b2c3d（同一个！）
                             docker compose pull
                             docker compose up -d
                             ↑ 只有 push 到 main 才走这一步
