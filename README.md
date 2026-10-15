@@ -18,17 +18,44 @@
 
 ## 快速开始
 
+### 方式一：Docker Compose（推荐）
+
+一条命令拉起 MySQL、Redis 和应用。首次启动时数据卷为空，会自动按文件名顺序执行 `sql/` 下的脚本建库建表并灌入数据。
+
 ```bash
-git clone <repo-url>
+git clone https://github.com/ZZZ-JJJ-HHH/NavigationMenu.git
 cd NavigationMenu
+docker compose up -d --wait
+```
 
-# 1. 初始化数据库
-mysql -u root -p < sql/init_branch.sql
-mysql -u root -p < sql/init_data.sql
+验证 →
 
-# 2. 修改 application.yaml 中的数据库和 Redis 连接
+```bash
+curl.exe -s -X POST http://localhost:8080/api/menu/tree -H "Content-Type: application/json" -d "@test/test_body.json"
+curl.exe -s http://localhost:8080/actuator/health
+```
 
-# 3. 启动
+停止并清空数据 →
+
+```bash
+docker compose down -v
+```
+
+MySQL、Redis 只绑定在本机回环上（宿主端口 3307 / 6380，避开本地已有的 3306 / 6379）。端口被占用时用环境变量错开：
+
+```powershell
+$env:APP_PORT='8081'; docker compose up -d --wait
+```
+
+### 方式二：本地直跑
+
+```bash
+# 1. 初始化数据库（00_schema 负责建库建表，必须最先执行）
+mysql -u root -p                       < sql/00_schema.sql
+mysql -u root -p navigation_menu       < sql/init_branch.sql
+mysql -u root -p navigation_menu       < sql/init_data.sql
+
+# 2. 启动（连接信息优先读环境变量，未设置则用 application.yaml 里的本地默认值）
 mvn spring-boot:run
 ```
 
@@ -37,6 +64,8 @@ mvn spring-boot:run
 ```bash
 curl.exe -s -X POST http://localhost:8080/api/menu/tree -H "Content-Type: application/json" -d "@test/test_body.json"
 ```
+
+可覆盖的环境变量：`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`REDIS_HOST`、`REDIS_PORT`、`REDIS_PASSWORD`。
 
 ---
 
@@ -71,6 +100,25 @@ curl.exe -s -X POST http://localhost:8080/api/menu/tree -H "Content-Type: applic
 | 四维匹配 | 国家码 → 实体 → 渠道 → 网点，支持通配符 fallback |
 | Redis 缓存 | 四级 key 设计，缓存命中直接返回 |
 | O(n) 树构建 | HashMap 建立 ID→Node 索引，一次遍历完成父子挂载 |
+
+---
+
+## 自动化部署
+
+流水线定义在 [.github/workflows/ci.yml](.github/workflows/ci.yml)，push 到 `main` 或提交 PR 时触发：
+
+| 阶段 | 内容 |
+|------|------|
+| 编译 + 测试 | 复用 `docker-compose.yml` 起 MySQL 和 Redis，执行 `mvn verify` |
+| 构建镜像 | 用 buildx 构建 `Dockerfile`，确认镜像能产出并缓存构建层 |
+
+目前只做到 CI（每次提交自动构建、测试、产出镜像）。CD（自动把镜像送上运行环境）尚未接入，可选路线：
+
+1. **本机 + 内网穿透**：`docker compose up -d` 起服务，用 Cloudflare Tunnel 暴露成公网地址。零成本，适合演示，关机即停。
+2. **云服务器**：轻量应用服务器装 Docker，CI 把镜像推到 GHCR，CD 通过 SSH 执行 `docker compose pull && docker compose up -d`。最接近真实生产。
+3. **托管 PaaS**：仓库直连平台，由平台负责构建和运行，不用自己运维主机。
+
+健康检查端点：`GET /actuator/health`，容器与流水线都依赖它判断服务是否就绪。
 
 ---
 

@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### 本地环境变量（放数据库/Redis 口令，不要提交）###
+.env
