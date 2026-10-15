@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  # GHCR 要求镜像名全小写，而 GitHub 仓库名允许大写字母，所以这里写成小写字面量
-  IMAGE_NAME: ghcr.io/zzz-jjj-hhh/navigation-menu
-
 jobs:
   test:
     name: 编译 + 测试
@@ -75,9 +71,10 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name == 'push' }}
+          # 镜像名必须全小写，而 GitHub 仓库名允许大写字母，所以写死小写字面量
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
+            ghcr.io/zzz-jjj-hhh/navigation-menu:${{ github.sha }}
+            ghcr.io/zzz-jjj-hhh/navigation-menu:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -93,7 +90,7 @@ jobs:
       contents: read
       packages: read
     env:
-      APP_IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+      APP_IMAGE: ghcr.io/zzz-jjj-hhh/navigation-menu:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
 
