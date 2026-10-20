@@ -1,0 +1,54 @@
+# Public example configuration.
+# The runtime file is ops/alertmanager/alertmanager.yml and is ignored by Git.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: qq-email-warning
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 30s
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: qq-email-critical
+      repeat_interval: 5m
+    - matchers:
+        - severity="warning"
+      receiver: qq-email-warning
+      repeat_interval: 15m
+
+receivers:
+  - name: qq-email-critical
+    email_configs:
+      - to: 'alert-recipient@example.com'
+        from: 'alert-sender@example.com'
+        smarthost: 'smtp.qq.com:465'
+        auth_username: 'alert-sender@example.com'
+        auth_password_file: '/etc/alertmanager/secrets/qq_smtp_auth_code'
+        require_tls: true
+        force_implicit_tls: true
+        send_resolved: true
+        headers:
+          Subject: '[CRITICAL] {{ template "email.default.subject" . }}'
+
+  - name: qq-email-warning
+    email_configs:
+      - to: 'alert-recipient@example.com'
+        from: 'alert-sender@example.com'
+        smarthost: 'smtp.qq.com:465'
+        auth_username: 'alert-sender@example.com'
+        auth_password_file: '/etc/alertmanager/secrets/qq_smtp_auth_code'
+        require_tls: true
+        force_implicit_tls: true
+        send_resolved: true
+        headers:
+          Subject: '[WARNING] {{ template "email.default.subject" . }}'
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="NavigationMenuTargetDown"
+    target_matchers:
+      - alertname=~"HighServerErrorRate|HighMenuTreeLatency"
+    equal: ['job', 'instance']

@@ -1,4 +1,4 @@
-# 技术专题：Spring 依赖注入详解
+# 业务架构：Spring 依赖注入详解
 
 ---
 
@@ -17,7 +17,7 @@
 
 ## 📌 一句话核心
 
-> **Spring 帮你 new 对象，还自动把你需要的对象塞进去。构造器注入（配 Lombok + final）是大厂标准写法。**
+> <span style="color:red">**Spring 帮你 new 对象，还自动把你需要的对象塞进去。构造器注入（配 Lombok + final）是大厂标准写法。**</span>
 
 ---
 

@@ -34,3 +34,22 @@ build/
 
 ### 本地环境变量（放数据库/Redis 口令，不要提交）###
 .env
+
+### 应用运行日志（采集器读它，不进仓库）###
+logs/
+
+### 本地 webhook 接收器收到的告警（演示用，不进仓库）###
+ops/alertmanager/received-alerts.log
+
+### Alertmanager 本地通知凭据（SMTP 授权码等，不进仓库）###
+ops/alertmanager/secrets/
+ops/alertmanager/alertmanager.yml
+
+### 临时调试文件（截图、响应样本等，不进仓库）###
+临时文件/
+
+### Splunk 本地管理密码与 HEC Token（不进仓库）###
+ops/splunk/secrets/
+
+### Fluent Bit 本地 HEC Token（不进仓库）###
+ops/fluent-bit/secrets/

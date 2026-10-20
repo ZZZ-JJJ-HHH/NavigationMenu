@@ -24,7 +24,7 @@ public class MenuHandlerChain {
 
     public void proceed(MenuContext context) {
         for (MenuHandler handler : sortedHandlers) {
-            log.info("chain step: {}", handler.getClass().getSimpleName());
+            log.debug("chain step: {}", handler.getClass().getSimpleName());
             handler.handle(context);
             if (context.getResult() != null) {
                 log.info("chain terminated at {}", handler.getClass().getSimpleName());

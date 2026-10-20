@@ -1,4 +1,4 @@
-# 技术专题：CI/CD
+# 工程实践：CI/CD
 
 ---
 
@@ -33,7 +33,7 @@
 
 ## 📌 一句话核心
 
-> **CI 是每次提交后自动验证，CD 是验证通过后自动送达。分开看是两件事，合起来是一条从 `git push` 到服务跑起来的流水线。**
+> <span style="color:red">**CI 是每次提交后自动验证，CD 是验证通过后自动送达。分开看是两件事，合起来是一条从 `git push` 到服务跑起来的流水线。**</span>
 
 ---
 
@@ -473,7 +473,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 > ⚠️ **涉及默认值的行为，别凭文档断言，跑一条命令验证**。推断错的代价是双向的：多加了不必要的登录步骤；或者哪天真变私有而你没加，报错会指向"镜像不存在"，把人往错的方向带。
 
-详见 [技术专题-GHCR镜像仓库](./技术专题-GHCR镜像仓库.md)。
+详见 [工程实践-GHCR镜像仓库](./工程实践-GHCR镜像仓库.md)。
 
 **坑五：部署失败可能只是网络抖动**
 
@@ -510,7 +510,7 @@ gh run rerun <run-id> --failed
 >
 > 直觉上的缓解——把 deploy job 限定在 `push` 到 main——**并不够**。它只覆盖了我们自己写的那个 job；攻击者可以在自己的 fork 里另写一个 workflow，直接写 `runs-on: [self-hosted, navigation-menu-deploy]`，然后提 PR，根本不需要碰我们的 deploy job。官方原话是 "self-hosted runners should almost never be used for public repositories"。
 >
-> 现状是已知并暂时接受的风险。完整的风险分析、当前生效的防护，以及两条退出路径（转私有 / 去掉 runner 改本机定时拉取），都记录在 [技术专题-self-hosted-runner](./技术专题-self-hosted-runner.md) 的「本项目当前状态」一节。
+> 现状是已知并暂时接受的风险。完整的风险分析、当前生效的防护，以及两条退出路径（转私有 / 去掉 runner 改本机定时拉取），都记录在 [工程实践-self-hosted-runner](./工程实践-self-hosted-runner.md) 的「本项目当前状态」一节。
 
 ---
 
@@ -638,14 +638,14 @@ GitHub Actions 被触发
 
 | 专题 | 在链路中的位置 | 解决什么 |
 |------|--------------|---------|
-| [技术专题-Java编译打包与运行机制](./技术专题-Java编译打包与运行机制.md) | `mvn verify` 与 `docker build` 的内部 | 从源码到进程发生了什么 |
+| [工程实践-Java编译打包与运行机制](./工程实践-Java编译打包与运行机制.md) | `mvn verify` 与 `docker build` 的内部 | 从源码到进程发生了什么 |
 | **本篇：CI/CD** | **把上面这些环节串成自动流水线** | **什么时候自动跑、跑在哪、产物送到哪** |
-| [技术专题-GHCR镜像仓库](./技术专题-GHCR镜像仓库.md) | image job 的产物落点 | 镜像存在哪、怎么寻址、谁能拉 |
-| [技术专题-self-hosted-runner](./技术专题-self-hosted-runner.md) | deploy job 的执行环境 | 任务在谁的机器上跑 |
-| [技术专题-Mockito单元测试](./技术专题-Mockito单元测试.md) | test job 的内部 | 测试怎么写才有价值 |
-| [技术专题-责任链模式](./技术专题-责任链模式.md) | 服务启动之后 | 请求进来怎么处理 |
-| [技术专题-Redis缓存](./技术专题-Redis缓存.md) | 责任链的前置 | 挡住大部分请求 |
-| [技术专题-树形结构构建方案](./技术专题-树形结构构建方案.md) | 责任链内部 | O(n) 把平铺数据组树 |
+| [工程实践-GHCR镜像仓库](./工程实践-GHCR镜像仓库.md) | image job 的产物落点 | 镜像存在哪、怎么寻址、谁能拉 |
+| [工程实践-self-hosted-runner](./工程实践-self-hosted-runner.md) | deploy job 的执行环境 | 任务在谁的机器上跑 |
+| [工程实践-Mockito单元测试](./工程实践-Mockito单元测试.md) | test job 的内部 | 测试怎么写才有价值 |
+| [业务架构-责任链模式](../业务架构/业务架构-责任链模式.md) | 服务启动之后 | 请求进来怎么处理 |
+| [业务架构-Redis缓存](../业务架构/业务架构-Redis缓存.md) | 责任链的前置 | 挡住大部分请求 |
+| [业务架构-树形结构构建方案](../业务架构/业务架构-树形结构构建方案.md) | 责任链内部 | O(n) 把平铺数据组树 |
 
 ### 一句话串起整条链
 

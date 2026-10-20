@@ -8,6 +8,7 @@ import com.example.navigation_menu.service.chain.MenuContext;
 import com.example.navigation_menu.service.chain.MenuHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.logstash.logback.argument.StructuredArguments;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -30,11 +31,19 @@ public class LegacyCheckHandler implements MenuHandler {
         );
 
         if (branch != null && branch.getUseLegacyMenu() != null && branch.getUseLegacyMenu() == 1) {
-            log.info("branch {} uses legacy menu, chain terminated", context.getQuery().getBranchCode());
+            log.info("branch {} uses legacy menu, chain terminated", context.getQuery().getBranchCode(),
+                    StructuredArguments.kv("eventType", "legacy.shortcut"),
+                    StructuredArguments.kv("branchCode", context.getQuery().getBranchCode()),
+                    StructuredArguments.kv("useLegacy", true),
+                    StructuredArguments.kv("branchFound", true));
             context.setResult(new MenuTreeVO(Collections.emptyList(), null));
             return;
         }
 
-        log.info("branch {} uses new menu, continue chain", context.getQuery().getBranchCode());
+        log.debug("branch {} uses new menu, continue chain", context.getQuery().getBranchCode(),
+                StructuredArguments.kv("eventType", "legacy.shortcut"),
+                StructuredArguments.kv("branchCode", context.getQuery().getBranchCode()),
+                StructuredArguments.kv("useLegacy", false),
+                StructuredArguments.kv("branchFound", branch != null));
     }
 }

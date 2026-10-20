@@ -53,9 +53,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+
+
+        <!-- management 是 Spring Boot Actuator 的配置命名空间。Actuator 的作用一句话：它让你的应用"可被监控"，把应用内部的运行状态，暴露成一组 HTTP 端点 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- 把日志编码成一行一个 JSON，这是"能被检索"的前提 -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.0</version>
+        </dependency>
+        <!-- 把 Micrometer 采集到的指标翻译成 Prometheus 能 scrape 的文本格式，版本由 Boot 统一管理 -->
+        <!-- prometheus 是一个时间序列数据库，用于存储和查询指标数据（说人话就是 收集应用接受的各种请求和响应结果，存储到数据库中） -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

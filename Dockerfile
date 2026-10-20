@@ -21,6 +21,9 @@ RUN apt-get update \
 
 COPY --from=build /build/target/*.jar app.jar
 
+# 应用以非 root 用户运行，日志目录必须先建好并交给它，否则文件日志写不进去
+RUN mkdir -p /app/logs && chown -R app:app /app
+
 USER app
 EXPOSE 8080
 

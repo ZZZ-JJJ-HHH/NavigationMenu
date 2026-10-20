@@ -20,7 +20,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public MenuTreeVO buildMenuTree(MenuQueryDTO dto) {
-        log.info("buildMenuTree start, query: {}", dto);
+        log.debug("buildMenuTree start, query: {}", dto);
 
         String branchCode = dto.getBranchCode();
         String userId = dto.getUserId();

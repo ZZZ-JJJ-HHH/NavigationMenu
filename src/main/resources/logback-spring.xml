@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!--
+      这里同时挂了两种输出，是理解结构化日志最直观的方式：
+        CONSOLE   —— 给人看，格式自由，本地开发舒服
+        JSON_FILE —— 给机器看，一行一个 JSON，采集器（Fluent Bit）将来读这个文件
+      同一个 log.info() 会同时落到这两边，内容一样、形态不同。
+    -->
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] [%X{traceId:--}] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH:-logs}/app.log</file>
+
+        <!-- 按天 + 按大小滚动：单文件到 50MB 就切，旧文件压缩，最多留 7 天且总量不超过 1GB -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH:-logs}/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- 时间统一存 UTC，展示时再按本地时区换算。日志里混时区是排查时最常见的坑之一 -->
+            <timeZone>UTC</timeZone>
+            <!-- 每条日志都带的固定字段：告诉检索平台这条日志属于哪个服务 -->
+            <customFields>{"service":"navigation-menu"}</customFields>
+            <!-- 字段名对齐文档里定好的那套，否则看板写完了还得回头改 -->
+            <fieldNames>
+                <version>[ignore]</version>
+                <logger>logger</logger>
+                <thread>thread</thread>
+                <levelValue>[ignore]</levelValue>
+                <stackTrace>stackTrace</stackTrace>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="JSON_FILE"/>
+    </root>
+
+</configuration>

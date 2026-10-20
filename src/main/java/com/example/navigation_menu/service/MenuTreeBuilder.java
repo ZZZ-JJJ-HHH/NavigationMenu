@@ -71,7 +71,7 @@ public class MenuTreeBuilder {
 
     // 方案二（单趟 idMap）
     public List<MenuNodeVO> build(List<MenuConfig> menus) {
-        log.info("treeBuilder input: {} menus", menus == null ? 0 : menus.size());
+        log.debug("treeBuilder input: {} menus", menus == null ? 0 : menus.size());
         if (menus == null || menus.isEmpty()) {
             return Collections.emptyList();
         }
@@ -84,7 +84,7 @@ public class MenuTreeBuilder {
         for (MenuConfig menu : sorted) {
             idMap.put(menu.getId(), convert(menu));
         }
-        log.info("idMap built, size={}, keys={}", idMap.size(), idMap.keySet());
+        log.debug("idMap built, size={}, keys={}", idMap.size(), idMap.keySet());
 
         List<MenuNodeVO> roots = new ArrayList<>();
         for (MenuConfig menu : sorted) {
@@ -95,7 +95,7 @@ public class MenuTreeBuilder {
                 roots.add(node);
             } else {
                 MenuNodeVO parent = idMap.get(parentId);
-                log.info("menu[id={}] parentId={}, parent found={}", menu.getId(), parentId, parent != null);
+                log.debug("menu[id={}] parentId={}, parent found={}", menu.getId(), parentId, parent != null);
                 if (parent != null) {
                     if (parent.getChildren() == null) {
                         parent.setChildren(new ArrayList<>());
@@ -105,7 +105,7 @@ public class MenuTreeBuilder {
             }
         }
 
-        log.info("tree built, roots={}", roots.size());
+        log.debug("tree built, roots={}", roots.size());
         return roots;
     }
 

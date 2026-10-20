@@ -1,0 +1,28 @@
+# 本地演示用的最小配置：只做一件事 —— 定时来拉本机应用的指标。
+#
+# 注意目标是「应用」，不是 Redis / MySQL。容器里的 Prometheus 通过
+# host.docker.internal 访问宿主机上跑的应用。
+#
+# 统一用 8080。注意 docker compose 里的 app 容器要停掉，否则占着这个端口；
+# 而且那个容器是旧镜像，里面没有 prometheus 端点。
+
+global:
+  scrape_interval: 15s        # 抓取间隔，决定你能看到的精度下限
+  evaluation_interval: 15s    # 告警规则每 15 秒求值一次，决定 pending 状态多久能被发现
+
+rule_files:
+  - /etc/prometheus/rules.yml
+
+# 告警算出"触发"之后，交给 Alertmanager 去分组、去重、静默、发送
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['host.docker.internal:9093']
+
+scrape_configs:
+  - job_name: navigation-menu
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          env: local

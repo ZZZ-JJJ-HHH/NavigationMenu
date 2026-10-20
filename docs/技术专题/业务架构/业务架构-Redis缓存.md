@@ -1,4 +1,4 @@
-# 技术专题：Redis 缓存
+# 业务架构：Redis 缓存
 
 ---
 
@@ -17,7 +17,7 @@
 
 ## 📌 一句话核心
 
-> 菜单是低频变高频读的数据，加一层 Redis 缓存，命中就直接返回省掉整条责任链。
+> <span style="color:red">**菜单是低频变高频读的数据，加一层 Redis 缓存，命中就直接返回省掉整条责任链。**</span>
 
 ---
 
@@ -291,24 +291,25 @@ public MenuTreeVO buildMenuTree(MenuQueryDTO dto) {
 
 ### 两次 curl 验证
 
-**第一次请求（缓存 miss -> 走完整链）**：
+**第一次请求（缓存 miss -> 走完整链）。闸门 = INFO，生产默认只留决策结果**：
 `
-17:04:14.688 INFO  buildMenuTree start
-17:04:14.689 INFO  cache miss, key=menu:tree:SH001:normal_user
-17:04:14.707 INFO  chain step: LegacyCheckHandler
-17:04:14.707 INFO  chain step: LoadMenuHandler
-17:04:14.708 INFO  chain step: FallbackMatchHandler
-17:04:14.708 INFO  chain step: PermissionFilterHandler
-17:04:14.710 INFO  chain step: TreeBuildHandler
-17:04:14.710 INFO  chain terminated at TreeBuildHandler
-17:04:14.729 INFO  cache set, key=menu:tree:SH001:normal_user, ttl=PT10M
+00:19:44.121 INFO  getMenuTree, params: MenuQueryDTO(branchCode=SH001, userId=normal_user, ...)
+00:19:44.122 INFO  cache miss, key=menu:tree:SH001:normal_user
+00:19:44.150 INFO  loaded 25 active menus
+00:19:44.151 INFO  after fallback match: 24 nodes
+00:19:44.152 INFO  after permission filter: 23 nodes
+00:19:44.154 INFO  tree built, root count: 7
+00:19:44.154 INFO  chain terminated at TreeBuildHandler
+00:19:44.170 INFO  cache set, key=menu:tree:SH001:normal_user, ttl=PT10M
 `
 
 **第二次请求（缓存 hit -> 直接返回，不走链）**：
 `
-17:04:19.861 INFO  buildMenuTree start
-17:04:19.880 INFO  cache hit, key=menu:tree:SH001:normal_user
+00:19:52.301 INFO  getMenuTree, params: MenuQueryDTO(branchCode=SH001, userId=normal_user, ...)
+00:19:52.305 INFO  cache hit, key=menu:tree:SH001:normal_user
 `
+
+> 🔑 **两次请求对比出的正是缓存的价值**：第一次 8 行、走了 5 个 Handler 和一次查库；第二次 2 行、直接返回。`cache hit` / `cache miss` / `cache set` 都留在 INFO 级，因为它们是**决策结果**，也是算缓存命中率的原始数据。而 `chain step` 这类骨架日志在 DEBUG 级，需要时才把闸门打开（见 [业务架构-责任链模式](./业务架构-责任链模式.md)）。
 
 ### redis-cli 观察
 

@@ -1,0 +1,49 @@
+# 三条最小可用的告警规则。
+# 注意统计窗口用 5m、for 用 1m：for 必须比窗口短，否则条件会先于计时器消失。
+
+groups:
+  - name: navigation-menu
+    rules:
+      # ① 抓不到应用：最基础的一条。target 连续 1 分钟不可达就报。
+      - alert: NavigationMenuTargetDown
+        expr: up{job="navigation-menu"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "应用抓取失败（target down）"
+          description: "Prometheus 连续 1 分钟抓不到 {{ $labels.instance }}，先看 /targets 页面的 Error 列。"
+
+      # ② 错误率：只算业务接口，排除 actuator 的自监控抓取。
+      #    两边都用 increase：念作"5 分钟错几次 ÷ 5 分钟共几次"，比 rate 更好读。
+      #    末尾的 and 是流量门槛：至少 3 次业务请求才评估，避免小样本误报。
+      - alert: HighServerErrorRate
+        expr: |
+          (
+            sum(increase(http_server_requests_seconds_count{outcome="SERVER_ERROR",uri!~"/actuator/.*"}[5m]))
+            /
+            sum(increase(http_server_requests_seconds_count{uri!~"/actuator/.*"}[5m]))
+          ) > 0.01
+          and
+          (
+            sum(increase(http_server_requests_seconds_count{uri!~"/actuator/.*"}[5m])) > 3
+          )
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "业务接口 5xx 比例超过 1%"
+          description: "当前错误率约为 {{ $value | humanizePercentage }}，去日志里找同 traceId 的 ERROR 行。"
+
+      # ③ 延迟：菜单接口 P95 超过 1 秒。
+      - alert: HighMenuTreeLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{uri="/api/menu/tree"}[5m]))
+          ) > 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "菜单接口 P95 超过 1 秒"
+          description: "当前 P95 = {{ $value }}s，看 chain.step 日志定位慢在哪一层。"

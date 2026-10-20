@@ -1,4 +1,4 @@
-# 技术专题：Mockito 单元测试
+# 工程实践：Mockito 单元测试
 
 ---
 
@@ -28,7 +28,7 @@
 
 ## 📌 一句话核心
 
-> **单元测试 = 用 Mock 隔离外部依赖 + 用断言锁定行为边界，让每个方法独立、可重复、快速地被验证。**
+> <span style="color:red">**单元测试 = 用 Mock 隔离外部依赖 + 用断言锁定行为边界，让每个方法独立、可重复、快速地被验证。**</span>
 
 ---
 
@@ -378,10 +378,10 @@ Controller（返回 JSON）
 
 | 专题 | 和单元测试的关系 |
 |---|---|
-| **技术专题-责任链模式** | `MenuHandlerChain` 和 5 个 Handler 是单元测试的**被测对象**或**mock 对象**。`MenuHandlerChainTest` 专门测 Chain 的 @Order 排序和自动终止逻辑 |
-| **技术专题-Redis缓存** | `MenuTreeCacheService` 是单元测试的**核心 mock 对象**。测试通过打桩 `cacheService.get → null` 来模拟缓存未命中，验证 Cache-Aside 的两条路径 |
-| **技术专题-树形结构构建方案** | `MenuTreeBuilder` 有独立的单元测试 `MenuTreeBuilderTest`，验证 O(n) 组树算法的正确性 |
-| **技术专题-Spring依赖注入** | 单元测试**故意不用** Spring——直接 `new MenuServiceImpl(mockCache, mockChain)`，绕开容器，这正是"理解了 DI 才能更好地绕开 DI" |
+| **业务架构-责任链模式** | `MenuHandlerChain` 和 5 个 Handler 是单元测试的**被测对象**或**mock 对象**。`MenuHandlerChainTest` 专门测 Chain 的 @Order 排序和自动终止逻辑 |
+| **业务架构-Redis缓存** | `MenuTreeCacheService` 是单元测试的**核心 mock 对象**。测试通过打桩 `cacheService.get → null` 来模拟缓存未命中，验证 Cache-Aside 的两条路径 |
+| **业务架构-树形结构构建方案** | `MenuTreeBuilder` 有独立的单元测试 `MenuTreeBuilderTest`，验证 O(n) 组树算法的正确性 |
+| **业务架构-Spring依赖注入** | 单元测试**故意不用** Spring——直接 `new MenuServiceImpl(mockCache, mockChain)`，绕开容器，这正是"理解了 DI 才能更好地绕开 DI" |
 
 ### 三种测试手段的互补关系
 
